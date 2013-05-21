@@ -1,0 +1,4 @@
+crap.txt
+SimpleAdd.asm
+SimpleAdd.vm
+SimpleBeastAdd.vm

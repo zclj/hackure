@@ -1,0 +1,3 @@
+push constant 666
+push constant 333
+add
