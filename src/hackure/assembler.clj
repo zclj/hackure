@@ -1,5 +1,5 @@
 (ns hackure.assembler
-  (:require [clojure.java.io :as io]))
+  (:require [hackure.utils :as utils]))
 
 (def destinations
   {:null "000" :M "001" :D "010" :MD "011"
@@ -23,14 +23,6 @@
    "R0" 0 "R1" 1 "R2" 2 "R3" 3 "R4" 4 "R5" 5 "R6" 6 "R7" 7 "R8" 8 "R9" 9
    "R10" 10 "R11" 11 "R12" 12 "R13" 13 "R14" 14 "R15" 15
    "SCREEN" 16384 "KBD" 24576})
-
-(defn read-assembly-from-file [file-name]
-  (with-open [rdr (io/reader file-name)]
-    (doall (line-seq rdr))))
-
-(defn write-machine-code-to-file [file-name machine-code]
-  (with-open [writer (io/writer file-name)]
-    (.write writer (clojure.string/join "\n" machine-code))))
 
 (defn build-assign-code [a-bit cmd-c dest-c]
   (str "111" a-bit cmd-c dest-c "000"))
@@ -77,14 +69,6 @@
   (if-let [var-sym (get-variable asm-line)]
     (get sym-tbl var-sym)))
 
-(defn comment? [line]
-  (not (or (= "" line) (= '(\/ \/) (take 2 line)))))
-
-(defn clean-up-assembly [assembly]
-  (->> (filter comment? assembly)
-       (map clojure.string/trim)
-       (map #(first (clojure.string/split % #" ")))))
-
 (defn remove-labels-from [assembly]
   (filter #(not (get-label %)) assembly))
 
@@ -120,7 +104,7 @@
   (map #(build-assembly-code-with-symbols symbol-table %) assembly))
 
 (defn parse [dirty-assembly default-symbols]
-  (let [clean-assembly (clean-up-assembly dirty-assembly)
+  (let [clean-assembly (utils/clean-up-assembly dirty-assembly)
         symbols-with-labels (merge default-symbols (build-label-symbols-from clean-assembly))
         assembly-with-labels-excluded (remove-labels-from clean-assembly)
         assembly (replace-symbol-references symbols-with-labels assembly-with-labels-excluded)
