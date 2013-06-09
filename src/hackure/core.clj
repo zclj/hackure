@@ -16,4 +16,6 @@
        (assembler/parse assembly-from-file assembler/with-predefined-symbols)))
     (let [file-source (first args)
           [code-file code] (vm/parse-source file-source)]
-      (utils/write-code-to-file code-file code))))
+      (do
+        (println (str "Written code to : " code-file))
+        (utils/write-code-to-file code-file code)))))

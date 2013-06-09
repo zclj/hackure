@@ -2,6 +2,17 @@
   (:use clojure.test
         hackure.vm-translator))
 
+;;;;;;;;;;;;;;;;;;; comments ;;;;;;;;;;;;;;;;
+(deftest remove-comments
+  (testing "remove comments from code"
+    (is (= (parse ["//comment" "push constant 8"])
+           ["@8" "D=A" "@SP" "M=M+1" "A=M-1" "M=D"]))))
+
+(deftest remove-comments-inline
+  (testing "remove comments inline"
+    (is (= (parse ["add                     // check if n < 2"])
+           ["@SP" "M=M-1" "A=M" "D=M" "A=A-1" "M=D+M"]))))
+
 ;;;;;;;;;;;;;;;;;;; push ;;;;;;;;;;;;;;;;;;;;
 (deftest push-constant
   (testing "write code for push constant 8"
@@ -148,15 +159,20 @@
     (is (= (parse ["sub"])
            ["@SP" "M=M-1" "A=M" "D=M" "A=A-1" "M=M-D"]))))
 
-(deftest and
+(deftest and-test
   (testing "write code for and"
     (is (= (parse ["and"])
            ["@SP" "M=M-1" "A=M" "D=M" "A=A-1" "M=M&D"]))))
 
-(deftest or
+(deftest or-test
   (testing "write code for or"
     (is (= (parse ["or"])
            ["@SP" "M=M-1" "A=M" "D=M" "A=A-1" "M=M|D"]))))
+
+(deftest not-test
+  (testing "write code for not"
+    (is (= (parse ["not"])
+           ["@SP" "A=M-1" "M=!M"]))))
 
 (deftest neg
   (testing "write code for neg"
@@ -193,6 +209,71 @@
       (is (= (re-find #"\(END_GT_" (asm 11))
              "(END_GT_")))))
 
+;;;;;;;;;;;;;;;;;;;;;;;; Program Flow Commands ;;;;;;;;;;;;;;;;
+(deftest label
+  (testing "write code for label"
+    (is (= (parse ["label null$LOOP_START"])
+           ["(null$LOOP_START)"]))))
+
+(deftest goto
+  (testing "write code for goto"
+    (is (= (parse ["goto null$LOOP_START"])
+           ["@null$LOOP_START" "0;JMP"]))))
+
+(deftest if-goto
+  (testing "write code for if-goto"
+    (is (= (parse ["if-goto null$LOOP_START"])
+           ["@SP" "AM=M-1" "D=M" "@null$LOOP_START" "D;JNE"]))))
+
+;;;;;;;;;;;;;;;;;;;;;;;; Function Calling ;;;;;;;;;;;;;;;;;;;;;
+
+(deftest function
+  (testing "write code for function"
+    (is (= (parse ["function SimpleFunc.test 2"])
+           ["(SimpleFunc.test)" "@0" "D=A" "@LCL" "A=D+M" "D=M" "@SP" 
+            "M=M+1" "A=M-1" "M=D" "@1" "D=A" "@LCL" "A=D+M" "D=M" "@SP"
+            "M=M+1" "A=M-1" "M=D"]))))
+
+(deftest return
+  (testing "write code for return"
+    (is (= (parse ["return"])
+           ["@LCL" "D=M" "@R13" "M=D"
+            "@5" "A=D-A" "D=M" "@R14" "M=D"
+            "@SP" "AM=M-1" "D=M"
+            "@ARG" "A=M" "M=D" "D=A" "@SP" "M=D+1" "@R13" "AM=M-1" "D=M"
+            "@THAT" "M=D" "@R13" "AM=M-1" "D=M"
+            "@THIS" "M=D" "@R13" "AM=M-1" "D=M"
+            "@ARG" "M=D" "@R13" "AM=M-1" "D=M"
+            "@LCL" "M=D"
+            "@R14" "A=M" "0;JMP"]))))
+
+(deftest call
+  (testing "write code for call"
+    (let [call-code (parse ["call main.test 2"])
+          filtered-code (filter #(not (re-find #"RET_" %)) call-code)]
+      (is (= filtered-code
+             ["@SP" "D=M-1" "D=D-1" "D=D-1" "@R13" "M=D" "D=A" "@SP" "M=M+1" "A=M-1"
+              "M=D"
+              "@LCL" "D=M" "@SP" "M=M+1" "A=M-1" "M=D"
+              "@ARG" "D=M" "@SP" "M=M+1" "A=M-1" "M=D"
+              "@THIS" "D=M" "@SP" "M=M+1" "A=M-1" "M=D"
+              "@THAT" "D=M" "@SP" "M=M+1" "A=M-1" "M=D"
+              "@R13" "D=M+1" "@ARG" "M=D" "@SP" "D=M" "@LCL" "M=D"
+              "@main.test" "0;JMP"]))
+      )))
+
+;;;;;;;;;;;;;;;;;;;;;;;; boot strap ;;;;;;;;;;;;;;;;;;;;;
+(deftest bootstrap
+  (testing "write code for boot strap"
+    (is (= (write-bootstrap)
+           ["@256" "D=A" "@SP" "M=D"
+            "@bootstrap_return" "D=A" "@SP" "M=M+1" "A=M-1" "M=D"
+            "@LCL" "D=M" "@SP" "M=M+1" "A=M-1" "M=D"
+            "@ARG" "D=M" "@SP" "M=M+1" "A=M-1" "M=D"
+            "@THIS" "D=M" "@SP" "M=M+1" "A=M-1" "M=D"
+            "@THAT" "D=M" "@SP" "M=M+1" "A=M-1" "M=D"
+            "@Sys.init" "0;JMP" "(bootstrap_return)"]))))
+
 ;;;;;;;;;;;;;;;;;;;;;;;; Example programs ;;;;;;;;;;;;;;;;;;;;;
 
 (deftest simple-add
@@ -201,3 +282,4 @@
            ["@7" "D=A" "@SP" "M=M+1" "A=M-1" "M=D"
             "@8" "D=A" "@SP" "M=M+1" "A=M-1" "M=D"
             "@SP" "M=M-1" "A=M" "D=M" "A=A-1" "M=D+M"]))))
+

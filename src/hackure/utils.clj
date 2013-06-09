@@ -21,6 +21,7 @@
 
 (defn clean-up-vm-code [code]
   (->> (filter comment? code)
+       (map #(first (clojure.string/split % #"//")))
        (map clojure.string/trim)))
 
 (defn clean-up-assembly [assembly]
